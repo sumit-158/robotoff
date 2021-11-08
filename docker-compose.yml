@@ -8,6 +8,7 @@ x-robotoff-base: &robotoff-base
       - ./datasets:/opt/robotoff/datasets
       - ./tf_models:/opt/robotoff/tf_models
       - ./models:/opt/robotoff/models
+      - ./scripts:/opt/robotoff/scripts
 
 x-robotoff-base-env: &robotoff-base-env
   ROBOTOFF_INSTANCE:

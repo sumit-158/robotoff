@@ -2,7 +2,7 @@
 # -----------------
 FROM python:3.7-slim as python-base
 RUN apt-get update && \
-    apt-get install --no-install-suggests --no-install-recommends -y gettext curl build-essential && \
+    apt-get install --no-install-suggests --no-install-recommends -y gettext curl build-essential wget && \
     apt-get autoremove --purge && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -44,7 +44,7 @@ RUN groupadd -g $OFF_GID off && \
 COPY i18n /opt/robotoff/i18n
 RUN cd /opt/robotoff/i18n && \
     bash compile.sh
-COPY robotoff /opt/robotoff/robotoff/
+COPY robotoff /opt/robotoff/robotoff
 COPY data /opt/robotoff/data
 COPY gunicorn.py /opt/robotoff/
 RUN chown off:off -R /opt/robotoff
