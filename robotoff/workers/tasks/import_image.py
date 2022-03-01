@@ -110,18 +110,22 @@ def save_image(
         uploaded_t = int(uploaded_t)
 
     uploaded_at = datetime.datetime.utcfromtimestamp(uploaded_t)
-    image_model = ImageModel.create(
-        barcode=barcode,
-        image_id=image_id,
-        width=width,
-        height=height,
-        source_image=source_image,
-        uploaded_at=uploaded_at,
-        server_domain=server_domain,
-        server_type=get_server_type(server_domain).name,
-    )
-    if image_model is not None:
-        logger.info("New image %s created in DB", image_model.id)
+    query = {
+        "barcode": barcode,
+        "image_id": image_id,
+        "width": width,
+        "height": height,
+        "source_image": source_image,
+        "uploaded_at": uploaded_at,
+        "server_domain": server_domain,
+        "server_type": get_server_type(server_domain).name,
+    }
+    if ImageModel.get_or_none(**query) is not None:
+        # Image already exists in DB, don't create a new one
+        return None
+
+    image_model = ImageModel.create(**query)
+    logger.info("New image %s created in DB", image_model.id)
     return image_model
 
 
