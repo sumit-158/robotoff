@@ -47,7 +47,7 @@ def run_import_image_job(
 
     with db:
         with db.atomic():
-            save_image(barcode, source_image, product, server_domain)
+            save_image(source_image, product, server_domain)
             import_insights_from_image(
                 barcode, image, source_image, ocr_url, server_domain
             )
@@ -74,9 +74,18 @@ def import_insights_from_image(
 
 
 def save_image(
-    barcode: str, source_image: str, product: Product, server_domain: str
+    source_image: str, product: Product, server_domain: str
 ) -> Optional[ImageModel]:
-    """Save imported image details in DB."""
+    """Save imported image details in DB.
+
+    If the image meta-data is invalid or if it already exists in DB, no image
+    import is performed.
+
+    :param source_image: The image path
+    :param product: The Product associated with the image
+    :param server_domain: The server domain of the image
+    :return: The created ImageModel instance or None
+    """
     image_id = pathlib.Path(source_image).stem
 
     if not image_id.isdigit():
@@ -84,7 +93,9 @@ def save_image(
         return None
 
     if image_id not in product.images:
-        logger.warning("Unknown image for product %s: %s", barcode, source_image)
+        logger.warning(
+            "Unknown image for product %s: %s", product.barcode, source_image
+        )
         return None
 
     image = product.images[image_id]
@@ -111,7 +122,7 @@ def save_image(
 
     uploaded_at = datetime.datetime.utcfromtimestamp(uploaded_t)
     query = {
-        "barcode": barcode,
+        "barcode": product.barcode,
         "image_id": image_id,
         "width": width,
         "height": height,
