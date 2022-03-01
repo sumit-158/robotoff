@@ -841,6 +841,7 @@ def import_product_predictions(
             PredictionModel.source_image,
             PredictionModel.value_tag,
             PredictionModel.value,
+            PredictionModel.predictor,
         )
         .where(PredictionModel.barcode == barcode)
         .tuples()
@@ -855,6 +856,7 @@ def import_product_predictions(
             prediction.source_image,
             prediction.value_tag,
             prediction.value,
+            prediction.predictor,
         )
         not in existing_predictions
     )
