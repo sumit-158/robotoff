@@ -1,0 +1,37 @@
+SHAPES.1: /bo[iî]te de conserve/i
+      | /bo[iî]te/i
+      | "film"i
+      | "carte"i
+      | "cagette"i
+      | "canette"i
+      | "couvercle"i
+      | /capsule de caf[ée]/i
+      | "collier"i
+      | "tube"i
+      | "opercule"i
+
+
+MATERIALS.1: "verre"i
+         | /alu(minium)?/i
+         | /alu(minium)? recyclé/i
+         | "carton"i
+         | "papier"i
+         | /m[ée]tal/i
+         | "plastique"i
+
+RECYCLING.1: "jeter"i
+         | /r[ée]utiliser/i
+         | "recycler"i
+         | /recycler dans le conteneur [àa] papier/i
+         | /recycler dans le conteneur [àa] verre/i
+OTHER.0: /[^\s]+/
+
+start: (multiple_packaging | packaging | junk)+
+junk: OTHER+
+multiple_packaging: SHAPES "et" shape_material to_recycling?
+packaging: (shape_material | SHAPES) to_recycling?
+shape_material: SHAPES "en"? MATERIALS
+to_recycling: /[àa]/i RECYCLING
+
+%import common.WS
+%ignore WS

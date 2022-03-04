@@ -51,16 +51,28 @@ def get_predictions_from_product_name(
 
 
 def get_predictions_from_image(
-    barcode: str, image: Image.Image, source_image: str, ocr_url: str
+    barcode: str,
+    image: Image.Image,
+    source_image: str,
+    ocr_url: str,
+    run_ocr_extraction: bool,
+    run_nutriscore_detection: bool,
 ) -> List[Prediction]:
-    logger.info(f"Generating OCR predictions from OCR {ocr_url}")
-    ocr_predictions = extract_ocr_predictions(
-        barcode, ocr_url, DEFAULT_OCR_PREDICTION_TYPES
+    logger.info("Generating OCR predictions from OCR %s", ocr_url)
+
+    ocr_predictions = (
+        extract_ocr_predictions(barcode, ocr_url, DEFAULT_OCR_PREDICTION_TYPES)
+        if run_ocr_extraction
+        else []
     )
-    extract_nutriscore = any(
-        prediction.value_tag == "en:nutriscore"
-        and prediction.type == PredictionType.label
-        for prediction in ocr_predictions
+
+    extract_nutriscore = (
+        any(
+            prediction.value_tag == "en:nutriscore"
+            and prediction.type == PredictionType.label
+            for prediction in ocr_predictions
+        )
+        and run_nutriscore_detection
     )
     image_ml_predictions = extract_image_ml_predictions(
         barcode, image, source_image, extract_nutriscore=extract_nutriscore

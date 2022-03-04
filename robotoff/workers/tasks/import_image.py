@@ -1,6 +1,7 @@
+import dataclasses
 import datetime
 import pathlib
-from typing import Optional
+from typing import List, Optional
 
 import requests
 from PIL import Image
@@ -25,9 +26,23 @@ from robotoff.utils import get_image_from_url, get_logger, http_session
 logger = get_logger(__name__)
 
 
+@dataclasses.dataclass()
+class ImportImageConfig:
+    ocr_extraction: bool = True
+    nutriscore_object_detection: bool = True
+    logo_object_detection: bool = True
+    notify_image_flag: bool = True
+    notify_logo_insight: bool = True
+
+
 def run_import_image_job(
-    barcode: str, image_url: str, ocr_url: str, server_domain: str
+    barcode: str,
+    image_url: str,
+    ocr_url: str,
+    server_domain: str,
+    config: Optional[ImportImageConfig] = None,
 ):
+    config = config or ImportImageConfig()
     logger.info(
         f"Running `import_image` for product {barcode} ({server_domain}), image {image_url}"
     )
@@ -49,11 +64,18 @@ def run_import_image_job(
         with db.atomic():
             save_image(source_image, product, server_domain)
             import_insights_from_image(
-                barcode, image, source_image, ocr_url, server_domain
+                barcode, image, source_image, ocr_url, server_domain, config
             )
         with db.atomic():
             # Launch object detection in a new SQL transaction
-            run_object_detection(barcode, image, source_image, server_domain)
+            run_object_detection(
+                barcode,
+                image,
+                source_image,
+                server_domain,
+                config.logo_object_detection,
+                config.notify_logo_insight,
+            )
 
 
 def import_insights_from_image(
@@ -62,13 +84,23 @@ def import_insights_from_image(
     source_image: str,
     ocr_url: str,
     server_domain: str,
+    config: ImportImageConfig,
 ):
-    predictions_all = get_predictions_from_image(barcode, image, source_image, ocr_url)
-    NotifierFactory.get_notifier().notify_image_flag(
-        [p for p in predictions_all if p.type == PredictionType.image_flag],
-        source_image,
+    predictions_all = get_predictions_from_image(
         barcode,
+        image,
+        source_image,
+        ocr_url,
+        config.ocr_extraction,
+        config.nutriscore_object_detection,
     )
+
+    if config.notify_image_flag:
+        NotifierFactory.get_notifier().notify_image_flag(
+            [p for p in predictions_all if p.type == PredictionType.image_flag],
+            source_image,
+            barcode,
+        )
     imported = import_insights(predictions_all, server_domain, automatic=True)
     logger.info(f"Import finished, {imported} insights imported")
 
@@ -140,8 +172,17 @@ def save_image(
     return image_model
 
 
+OBJECT_DETECTION_TYPE = "object_detection"
+LOGO_DETECTOR_MODEL_NAME = "universal-logo-detector"
+
+
 def run_object_detection(
-    barcode: str, image: Image.Image, source_image: str, server_domain: str
+    barcode: str,
+    image: Image.Image,
+    source_image: str,
+    server_domain: str,
+    run_model: bool,
+    notify_logo_insight: bool,
 ):
     """Detect logos using the universal logo detector model and generate
     logo-related insights.
@@ -150,6 +191,10 @@ def run_object_detection(
     :param image: Pillow Image to run the object detection on
     :param image_url: URL of the image to use
     :param server_domain: The server domain associated with the image
+    :param run_model: if True, the logo detection model is run on the image,
+    otherwise
+    :param notify_logo_insight: if True, a notification is sent to a specific
+    Slack channel when a new logo-related insight is imported
     """
     logger.info(
         f"Running object detection for product {barcode} ({server_domain}), "
@@ -161,18 +206,49 @@ def run_object_detection(
         logger.warning(f"Missing image in DB for image {source_image}")
         return
 
-    timestamp = datetime.datetime.utcnow()
-    model_name = "universal-logo-detector"
-    results = ObjectDetectionModelRegistry.get(model_name).detect_from_image(
-        image, output_image=False
+    image_prediction = ImagePrediction.get_or_none(
+        image=image_instance,
+        type=OBJECT_DETECTION_TYPE,
+        model_name=LOGO_DETECTOR_MODEL_NAME,
     )
+    if image_prediction is None and run_model:
+        logos = detect_logo_objects(image, image_instance)
+        logger.info(f"{len(logos)} logos found for image {source_image}")
+        add_logos_to_ann(image_instance, logos)
+        try:
+            save_nearest_neighbors(logos)
+        except requests.exceptions.HTTPError as e:
+            resp = e.response
+            logger.warning(
+                f"Could not save nearest neighbors in ANN: {resp.status_code}: {resp.text}"
+            )
+    else:
+        logos = LogoAnnotation.select().where(image_prediction=image_prediction)
+
+    if logos:
+        thresholds = LOGO_CONFIDENCE_THRESHOLDS.get()
+        import_logo_insights(
+            logos,
+            thresholds=thresholds,
+            server_domain=server_domain,
+            notify_logo_insight=notify_logo_insight,
+        )
+
+
+def detect_logo_objects(
+    image: Image.Image, image_instance: ImageModel
+) -> List[LogoAnnotation]:
+    timestamp = datetime.datetime.utcnow()
+    results = ObjectDetectionModelRegistry.get(
+        LOGO_DETECTOR_MODEL_NAME
+    ).detect_from_image(image, output_image=False)
     data = results.to_json(threshold=0.1)
     max_confidence = max([item["score"] for item in data], default=None)
     image_prediction = ImagePrediction.create(
         image=image_instance,
-        type="object_detection",
-        model_name=model_name,
-        model_version=settings.OBJECT_DETECTION_MODEL_VERSION[model_name],
+        type=OBJECT_DETECTION_TYPE,
+        model_name=LOGO_DETECTOR_MODEL_NAME,
+        model_version=settings.OBJECT_DETECTION_MODEL_VERSION[LOGO_DETECTOR_MODEL_NAME],
         data={"objects": data},
         timestamp=timestamp,
         max_confidence=max_confidence,
@@ -189,17 +265,4 @@ def run_object_detection(
             )
             logos.append(logo)
 
-    logger.info(f"{len(logos)} logos found for image {source_image}")
-    if logos:
-        add_logos_to_ann(image_instance, logos)
-
-        try:
-            save_nearest_neighbors(logos)
-        except requests.exceptions.HTTPError as e:
-            resp = e.response
-            logger.warning(
-                f"Could not save nearest neighbors in ANN: {resp.status_code}: {resp.text}"
-            )
-
-        thresholds = LOGO_CONFIDENCE_THRESHOLDS.get()
-        import_logo_insights(logos, thresholds=thresholds, server_domain=server_domain)
+    return logos

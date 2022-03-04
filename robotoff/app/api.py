@@ -164,6 +164,17 @@ class InsightCollection:
         resp.media = response
 
 
+class InsightRefreshResource:
+    def on_post(self, req: falcon.Request, resp: falcon.Response, barcode: str):
+        """Generate and import predictions and refresh all insights for a
+        product."""
+        barcode = req.get_param("barcode", required=True)
+        sources = req.get_param_as_list("")
+        # parameters:
+        # - barcode
+        # - sources: ["images", "category"]
+
+
 class RandomInsightResource:
     def on_get(self, req: falcon.Request, resp: falcon.Response):
         insight_type: Optional[str] = req.get_param("type")
@@ -1062,6 +1073,7 @@ api.req_options.auto_parse_qs_csv = True
 api.add_route("/api/v1/insights/{barcode}", ProductInsightResource())
 api.add_route("/api/v1/insights/detail/{insight_id:uuid}", ProductInsightDetail())
 api.add_route("/api/v1/insights", InsightCollection())
+api.add_route("/api/v1/insights/refresh/{barcode}", InsightRefreshResource())
 api.add_route("/api/v1/insights/random", RandomInsightResource())
 api.add_route("/api/v1/insights/annotate", AnnotateInsightResource())
 api.add_route("/api/v1/predict/ingredients/spellcheck", IngredientSpellcheckResource())

@@ -1,0 +1,366 @@
+openapi: 3.0.0
+info:
+  title: API Reference
+  description: >-
+    Robotoff provides a simple API allowing consumers to fetch predictions and annotate them.
+    All endpoints must be prefixed with `/api/v1`. The full URL is `https://robotoff.openfoodfacts.org/api/v1/{endpoint}`.
+    Robotoff can interact with all Openfoodfacts products: Openfoodfacts, Openbeautyfacts, etc. and all environments (production, development, pro). The `server_domain` field should be used to specify the product/environment: `api.openfoodfacts.org` for OFF-prod, `api.openfoodfacts.net` for OFF-dev, `api.openbeautyfacts.org` for OBF-prod,...
+
+
+    ## Insights
+
+
+    An insight is a fact about a product that has been either extracted or inferred from the product pictures, characteristics,...
+
+    If the insight is correct, the Openfoodfacts DB can be updated accordingly.
+
+
+    Current insight types and their description can be found in [robotoff/insights/dataclass.py](https://github.com/openfoodfacts/robotoff/blob/master/robotoff/insights/dataclass.py).
+  contact: {}
+  version: "1.0"
+servers:
+  - url: https://robotoff.openfoodfacts.org/api/v1/
+    variables: {}
+paths:
+  /questions/{barcode}:
+    get:
+      tags:
+        - Questions
+      summary: Get questions for a given product
+      operationId: Getquestionsforagivenproduct
+      parameters:
+        - name: barcode
+          in: path
+          description: The product barcode
+          required: true
+          style: simple
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: The language of the question/value
+          required: false
+          schema:
+            type: string
+            default: en
+        - name: count
+          in: query
+          description: The number of questions to return
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: server_domain
+          in: query
+          description: The server domain
+          required: false
+          schema:
+            type: string
+            default: api.openfoodfacts.org
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+  /questions/random:
+    get:
+      tags:
+        - Questions
+      summary: Get random questions
+      description: >-
+        - Parameters:
+
+          - lang (str, optional) - the language of the question/value. 'en' by default.
+          - count (int, optional) - Number of questions to return. Default to 1.
+          - insight_types (list, optional) - comma-separated list, filter by insight types.
+          - country (str, optional) - filter by country tag.
+          - brands (str, optional) - filter by brands, comma-separated list of brand tags.
+          - value_tag (str, optional) - filter by value tag, i.e the value that is going to be sent to Openfoodfacts
+          - server_domain (str, optional) - server domain. Default to 'api.openfoodfacts.org'
+      operationId: Getrandomquestions
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+  /predict/ingredients/spellcheck:
+    get:
+      tags:
+        - Predictions
+      summary: Get spelling corrections
+      description: >-
+        Generate spellcheck corrections. Either the barcode or the text to correct must be supplied.
+
+
+        + text (str, optional) - the ingredient text to spellcheck.
+
+
+        + barcode (str, optional) - the barcode of the product.
+      operationId: Getspellingcorrections
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Getspellingcorrectionsresponse"
+              example:
+                corrected: farine de blé
+                corrections:
+                  - score: 0.0009564351
+                    term_corrections:
+                      - correction: farine
+                        end_offset: 6
+                        original: fqrine
+                        start_offset: 0
+                text: fqrine de blé
+      deprecated: false
+  /predict/nutrient:
+    get:
+      tags:
+        - Predictions
+      summary: Predict nutrient from OCR JSON
+      description: "- ocr_url (str, required) - the url of the OCR JSON"
+      operationId: PredictnutrientfromOCRJSON
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictnutrientfromOCRJSONresponse"
+              example:
+                nutrients:
+                  glucid:
+                    - nutrient: glucid
+                      raw: glucides 53 g
+                      unit: g
+                      value: "53"
+      deprecated: false
+  /insights/random:
+    get:
+      summary: Get a random insight
+      description: >-
+        Fetch a random insight.
+
+
+        - Parameters:
+
+          - type (str, optional) - the type of insight. If not provided, an insight from any type will be returned.
+          - country (str, optional) - Only return predictions with products from a specific country (ex: `en:france`)
+          - value_tag (str, optional) - filter by value tag, i.e the value that is going to be sent to Openfoodfacts
+          - server_domain (str, optional) - server domain. Default to 'api.openfoodfacts.org'
+          - count (int, optional) - number of results to return (default: 1)
+      operationId: Getarandominsight
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+  /insights/{barcode}:
+    get:
+      summary: Get all insights for a specific product
+      description: >-
+        Return all insights associated with a specific product.
+
+
+        + server_domain (str, optional) - server domain. Default to 'api.openfoodfacts.org'
+      operationId: Getallinsightsforaspecificproduct
+      parameters:
+        - name: barcode
+          in: path
+          description: ""
+          required: true
+          style: simple
+          schema:
+            type: string
+            example: Product barcode
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+  /insights/detail/{id}:
+    get:
+      summary: Get a specific insight
+      description: >-
+        Return a specific insight.
+
+
+        + id (str): ID of the insight
+      operationId: Getaspecificinsight
+      parameters:
+        - name: id
+          in: path
+          description: ""
+          required: true
+          style: simple
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+  /insights/annotate:
+    post:
+      summary: Submit an annotation
+      description: >-
+        Submit an annotation, given the `insight_id`. The request type must be `application/x-www-form-urlencoded`.
+
+
+        - Parameters:
+
+          - insight_id (str, required) - ID of the insight
+          - annotation (int, required) - Annotation of the prediction: 1 to accept the prediction, 0 to refuse it, and -1 for "unknown".
+          - update (int, optional) - Send the update to Openfoodfacts if `update=1`, don't send the update otherwise. This parameter is useful if the update is performed client-side.
+      operationId: Submitanannotation
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          headers: {}
+          content: {}
+      deprecated: false
+components:
+  schemas:
+    Getspellingcorrectionsresponse:
+      title: Getspellingcorrectionsresponse
+      required:
+        - corrected
+        - corrections
+        - text
+      type: object
+      properties:
+        corrected:
+          type: string
+        corrections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Correction"
+          description: ""
+        text:
+          type: string
+      example:
+        corrected: farine de blé
+        corrections:
+          - score: 0.0009564351
+            term_corrections:
+              - correction: farine
+                end_offset: 6
+                original: fqrine
+                start_offset: 0
+        text: fqrine de blé
+    Correction:
+      title: Correction
+      required:
+        - score
+        - term_corrections
+      type: object
+      properties:
+        score:
+          type: number
+        term_corrections:
+          type: array
+          items:
+            $ref: "#/components/schemas/TermCorrection"
+          description: ""
+      example:
+        score: 0.0009564351
+        term_corrections:
+          - correction: farine
+            end_offset: 6
+            original: fqrine
+            start_offset: 0
+    TermCorrection:
+      title: TermCorrection
+      required:
+        - correction
+        - end_offset
+        - original
+        - start_offset
+      type: object
+      properties:
+        correction:
+          type: string
+        end_offset:
+          type: integer
+          format: int32
+        original:
+          type: string
+        start_offset:
+          type: integer
+          format: int32
+      example:
+        correction: farine
+        end_offset: 6
+        original: fqrine
+        start_offset: 0
+    PredictnutrientfromOCRJSONresponse:
+      title: PredictnutrientfromOCRJSONresponse
+      required:
+        - nutrients
+      type: object
+      properties:
+        nutrients:
+          $ref: "#/components/schemas/Nutrients"
+      example:
+        nutrients:
+          glucid:
+            - nutrient: glucid
+              raw: glucides 53 g
+              unit: g
+              value: "53"
+    Nutrients:
+      title: Nutrients
+      required:
+        - glucid
+      type: object
+      properties:
+        glucid:
+          type: array
+          items:
+            $ref: "#/components/schemas/Glucid"
+          description: ""
+      example:
+        glucid:
+          - nutrient: glucid
+            raw: glucides 53 g
+            unit: g
+            value: "53"
+    Glucid:
+      title: Glucid
+      required:
+        - nutrient
+        - raw
+        - unit
+        - value
+      type: object
+      properties:
+        nutrient:
+          type: string
+        raw:
+          type: string
+        unit:
+          type: string
+        value:
+          type: string
+      example:
+        nutrient: glucid
+        raw: glucides 53 g
+        unit: g
+        value: "53"
+tags:
+  - name: Questions
+  - name: Predictions

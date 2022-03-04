@@ -225,6 +225,7 @@ def import_logo_insights(
     logos: List[LogoAnnotation],
     server_domain: str,
     thresholds: Dict[LogoLabelType, float],
+    notify_logo_insight: bool,
     default_threshold: float = 0.1,
 ):
     selected_logos = []
@@ -251,8 +252,9 @@ def import_logo_insights(
     predictions = predict_logo_predictions(selected_logos, logo_probs)
     imported = import_insights(predictions, server_domain, automatic=True)
 
-    for logo, probs in zip(selected_logos, logo_probs):
-        NotifierFactory.get_notifier().send_logo_notification(logo, probs)
+    if notify_logo_insight:
+        for logo, probs in zip(selected_logos, logo_probs):
+            NotifierFactory.get_notifier().send_logo_notification(logo, probs)
 
     return imported
 

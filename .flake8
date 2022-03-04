@@ -4,3 +4,6 @@ max-line-length = 88
 exclude = .git,__pycache__,build,dist,*_pb2.py,.venv
 per-file-ignores =
     robotoff/cli/main.py:B008
+
+inline-quotes=double
+application-import-names=robotoff
