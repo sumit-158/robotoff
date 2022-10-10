@@ -951,6 +951,8 @@ def get_questions_resource_on_get(
     reserved_barcode: Optional[bool] = req.get_param_as_bool(
         "reserved_barcode", default=False
     )
+    # filter by annotation campaign
+    campaign: Optional[str] = req.get_param("campaign")
 
     # If the device_id is not provided as a request parameter, we use the
     # hash of the IPs as a backup.
@@ -983,6 +985,7 @@ def get_questions_resource_on_get(
         reserved_barcode=reserved_barcode,
         avoid_voted_on=_get_skip_voted_on(auth, device_id),
         automatically_processable=False,
+        campaign=campaign,
     )
 
     offset: int = (page - 1) * count
